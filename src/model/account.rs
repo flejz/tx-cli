@@ -14,6 +14,7 @@ pub struct Account {
     pub client: u16,
     pub available: f64,
     pub held: f64,
+    pub frozen: bool,
 
     pub(crate) transactions: Vec<Transaction>,
 }
@@ -30,7 +31,7 @@ impl Account {
         self.available + self.held
     }
 
-    pub fn is_locked(&self) -> bool {
+    pub fn is_frozen(&self) -> bool {
         unimplemented!()
     }
 

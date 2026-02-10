@@ -1,3 +1,4 @@
+mod chargeback;
 mod deposit;
 mod dispute;
 mod resolve;
@@ -15,6 +16,7 @@ pub enum RuleError {
     TrasactionNotOnDispute(u32),
 }
 
+pub use chargeback::*;
 pub use deposit::*;
 pub use dispute::*;
 pub use resolve::*;
