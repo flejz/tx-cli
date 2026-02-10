@@ -1,9 +1,11 @@
 use clap::Parser;
-use model::Transaction;
-use std::path::PathBuf;
+use model::{Account, Transaction};
+use std::{collections::HashMap, path::PathBuf};
+
+use crate::model::AccountError;
 
 mod model;
-
+mod rules;
 /// Transaction CLI tool
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -13,6 +15,9 @@ struct Cli {
 
 #[derive(Debug, thiserror::Error)]
 enum Error {
+    #[error(transparent)]
+    AccountError(#[from] AccountError),
+
     #[error(transparent)]
     CSVError(#[from] csv::Error),
 }
@@ -30,8 +35,18 @@ fn main() -> Result<(), Error> {
         .from_path(cli.input)
         .expect("failed to read from CSV");
 
+    let mut accounts: HashMap<u16, Account> = HashMap::new();
+
     for tx in reader.deserialize::<Transaction>() {
-        dbg!(tx?);
+        let tx = tx.expect("the transaction is not valid!");
+
+        let account = accounts
+            .entry(tx.client)
+            .or_insert_with(|| Account::new(tx.client));
+
+        account.push_transaction(tx)?;
+
+        dbg!(account);
     }
 
     Ok(())
