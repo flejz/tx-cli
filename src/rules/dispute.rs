@@ -30,3 +30,55 @@ pub fn dispute(account: &mut Account, tx: &Transaction) -> Result<(), RuleError>
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_tx(r#type: TransactionType, client: u16, tx: u32, amount: f64) -> Transaction {
+        Transaction {
+            r#type,
+            client,
+            tx,
+            amount,
+        }
+    }
+
+    /// Returns an account that has a deposit of `amount` with tx id `tx_id` already applied.
+    fn account_with_deposit(client: u16, tx_id: u32, amount: f64) -> Account {
+        let mut account = Account::new(client);
+        account
+            .push_transaction(make_tx(TransactionType::Deposit, client, tx_id, amount))
+            .unwrap();
+        account
+    }
+
+    #[test]
+    fn dispute_moves_amount_from_available_to_held() {
+        let mut account = account_with_deposit(1, 1, 100.0);
+        let total_before = account.total();
+        let tx = make_tx(TransactionType::Dispute, 1, 1, 0.0);
+        dispute(&mut account, &tx).unwrap();
+        assert_eq!(account.available, 0.0);
+        assert_eq!(account.held, 100.0);
+        assert_eq!(account.total(), total_before);
+    }
+
+    #[test]
+    fn dispute_unknown_tx_returns_error() {
+        let mut account = account_with_deposit(1, 1, 100.0);
+        let tx = make_tx(TransactionType::Dispute, 1, 99, 0.0);
+        let result = dispute(&mut account, &tx);
+        assert!(matches!(result, Err(RuleError::TrasactionNotFound(99))));
+        assert_eq!(account.available, 100.0);
+        assert_eq!(account.held, 0.0);
+    }
+
+    #[test]
+    #[should_panic]
+    fn dispute_panics_on_wrong_type() {
+        let mut account = account_with_deposit(1, 1, 100.0);
+        let tx = make_tx(TransactionType::Deposit, 1, 1, 0.0);
+        dispute(&mut account, &tx).unwrap();
+    }
+}
