@@ -10,7 +10,8 @@ use crate::{
 ///
 /// # Errors
 ///
-/// Returns [`RuleError::DepositNotFound`] if no deposit with id `tx.tx` exists on the account.
+/// - Returns [`RuleError::AccountFrozen`] if the account is frozen.
+/// - Returns [`RuleError::DepositNotFound`] if no deposit with id `tx.tx` exists on the account.
 ///
 /// # Panics
 ///
@@ -18,6 +19,10 @@ use crate::{
 pub fn dispute(account: &mut Account, tx: &Transaction) -> Result<(), RuleError> {
     if !matches!(tx.r#type, TransactionType::Dispute) {
         panic!("failed to dispute transaction: {tx:?}");
+    }
+
+    if account.frozen {
+        return Err(RuleError::AccountFrozen);
     }
 
     let amount = account
@@ -47,9 +52,10 @@ mod tests {
     /// Returns an account that has a deposit of `amount` with tx id `tx_id` already applied.
     fn account_with_deposit(client: u16, tx_id: u32, amount: f64) -> Account {
         let mut account = Account::new(client);
+        account.available = amount;
         account
-            .push_transaction(make_tx(TransactionType::Deposit, client, tx_id, amount))
-            .unwrap();
+            .transactions
+            .push(make_tx(TransactionType::Deposit, client, tx_id, amount));
         account
     }
 
@@ -70,6 +76,17 @@ mod tests {
         let tx = make_tx(TransactionType::Dispute, 1, 99, 0.0);
         let result = dispute(&mut account, &tx);
         assert!(matches!(result, Err(RuleError::DepositNotFound(99))));
+        assert_eq!(account.available, 100.0);
+        assert_eq!(account.held, 0.0);
+    }
+
+    #[test]
+    fn dispute_on_frozen_account_returns_error() {
+        let mut account = account_with_deposit(1, 1, 100.0);
+        account.frozen = true;
+        let tx = make_tx(TransactionType::Dispute, 1, 1, 0.0);
+        let result = dispute(&mut account, &tx);
+        assert!(matches!(result, Err(RuleError::AccountFrozen)));
         assert_eq!(account.available, 100.0);
         assert_eq!(account.held, 0.0);
     }

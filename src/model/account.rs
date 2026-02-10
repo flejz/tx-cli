@@ -47,7 +47,7 @@ impl Account {
         }
 
         match &tx.r#type {
-            TransactionType::Deposit => rules::deposit(self, &tx),
+            TransactionType::Deposit => (),
             TransactionType::Withdrawal => (),
             TransactionType::Dispute => (),
             TransactionType::Resolve => (),

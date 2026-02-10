@@ -7,7 +7,8 @@ use crate::{
 ///
 /// # Errors
 ///
-/// Returns [`RuleError::InsuficientFunds`] if `account.available` is less than `tx.amount`.
+/// - Returns [`RuleError::AccountFrozen`] if the account is frozen.
+/// - Returns [`RuleError::InsuficientFunds`] if `account.available` is less than `tx.amount`.
 ///
 /// # Panics
 ///
@@ -15,6 +16,10 @@ use crate::{
 pub fn withdrawal(account: &mut Account, tx: &Transaction) -> Result<(), RuleError> {
     if !matches!(tx.r#type, TransactionType::Withdrawal) {
         panic!("failed to withdraw transaction: {tx:?}");
+    }
+
+    if account.frozen {
+        return Err(RuleError::AccountFrozen);
     }
 
     if account.available < tx.amount {
@@ -66,6 +71,15 @@ mod tests {
         let result = withdrawal(&mut account, &make_withdrawal(1, 1, 20.0));
         assert!(matches!(result, Err(RuleError::InsuficientFunds)));
         assert_eq!(account.available, 10.0);
+    }
+
+    #[test]
+    fn withdrawal_on_frozen_account_returns_error() {
+        let mut account = account_with_funds(1, 100.0);
+        account.frozen = true;
+        let result = withdrawal(&mut account, &make_withdrawal(1, 1, 40.0));
+        assert!(matches!(result, Err(RuleError::AccountFrozen)));
+        assert_eq!(account.available, 100.0);
     }
 
     #[test]

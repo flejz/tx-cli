@@ -6,6 +6,9 @@ mod withdrawal;
 
 #[derive(Debug, thiserror::Error)]
 pub enum RuleError {
+    #[error("account is frozen")]
+    AccountFrozen,
+
     #[error("insufficient funds")]
     InsuficientFunds,
 

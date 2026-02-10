@@ -9,6 +9,7 @@ use crate::{
 ///
 /// # Errors
 ///
+/// - Returns [`RuleError::AccountFrozen`] if the account is frozen.
 /// - Returns [`RuleError::DepositNotFound`] if no deposit with id `tx.tx` exists on the account.
 /// - Returns [`RuleError::TrasactionNotOnDispute`] if no dispute with id `tx.tx` exists on the account.
 ///
@@ -18,6 +19,10 @@ use crate::{
 pub fn resolve(account: &mut Account, tx: &Transaction) -> Result<(), RuleError> {
     if !matches!(tx.r#type, TransactionType::Resolve) {
         panic!("failed to resolve transaction: {tx:?}");
+    }
+
+    if account.frozen {
+        return Err(RuleError::AccountFrozen);
     }
 
     let amount = account
@@ -90,6 +95,16 @@ mod tests {
         let mut account = account_with_dispute(1, 1, 100.0);
         let result = resolve(&mut account, &make_tx(TransactionType::Resolve, 1, 99, 0.0));
         assert!(matches!(result, Err(RuleError::DepositNotFound(99))));
+    }
+
+    #[test]
+    fn resolve_on_frozen_account_returns_error() {
+        let mut account = account_with_dispute(1, 1, 100.0);
+        account.frozen = true;
+        let result = resolve(&mut account, &make_tx(TransactionType::Resolve, 1, 1, 0.0));
+        assert!(matches!(result, Err(RuleError::AccountFrozen)));
+        assert_eq!(account.held, 100.0);
+        assert_eq!(account.available, 0.0);
     }
 
     #[test]
