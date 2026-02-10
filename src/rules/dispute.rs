@@ -10,7 +10,7 @@ use crate::{
 ///
 /// # Errors
 ///
-/// Returns [`RuleError::TrasactionNotFound`] if no deposit with id `tx.tx` exists on the account.
+/// Returns [`RuleError::DepositNotFound`] if no deposit with id `tx.tx` exists on the account.
 ///
 /// # Panics
 ///
@@ -22,7 +22,7 @@ pub fn dispute(account: &mut Account, tx: &Transaction) -> Result<(), RuleError>
 
     let amount = account
         .find_transaction(tx.tx, TransactionType::Deposit)
-        .ok_or(RuleError::TrasactionNotFound(tx.tx))?
+        .ok_or(RuleError::DepositNotFound(tx.tx))?
         .amount;
 
     account.available -= amount;
@@ -69,7 +69,7 @@ mod tests {
         let mut account = account_with_deposit(1, 1, 100.0);
         let tx = make_tx(TransactionType::Dispute, 1, 99, 0.0);
         let result = dispute(&mut account, &tx);
-        assert!(matches!(result, Err(RuleError::TrasactionNotFound(99))));
+        assert!(matches!(result, Err(RuleError::DepositNotFound(99))));
         assert_eq!(account.available, 100.0);
         assert_eq!(account.held, 0.0);
     }

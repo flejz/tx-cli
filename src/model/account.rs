@@ -15,7 +15,7 @@ pub struct Account {
     pub available: f64,
     pub held: f64,
 
-    transactions: Vec<Transaction>,
+    pub(crate) transactions: Vec<Transaction>,
 }
 
 impl Account {
