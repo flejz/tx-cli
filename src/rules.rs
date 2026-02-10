@@ -5,11 +5,14 @@ mod withdrawal;
 
 #[derive(Debug, thiserror::Error)]
 pub enum RuleError {
-    #[error("insuficient funds")]
+    #[error("insufficient funds")]
     InsuficientFunds,
 
     #[error("transaction not found: {0}")]
     TrasactionNotFound(u32),
+
+    #[error("transaction not being disputed: {0}")]
+    TrasactionNotOnDispute(u32),
 }
 
 pub use deposit::*;
