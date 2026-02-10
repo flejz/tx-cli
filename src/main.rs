@@ -30,24 +30,32 @@ fn main() -> Result<(), Error> {
         std::process::exit(1);
     }
 
-    let mut reader = csv::ReaderBuilder::new()
+    let mut csv_reader = csv::ReaderBuilder::new()
         .trim(csv::Trim::All)
         .from_path(cli.input)
         .expect("failed to read from CSV");
 
     let mut accounts: HashMap<u16, Account> = HashMap::new();
 
-    for tx in reader.deserialize::<Transaction>() {
+    for tx in csv_reader.deserialize::<Transaction>() {
         let tx = tx.expect("the transaction is not valid!");
 
         let account = accounts
             .entry(tx.client)
             .or_insert_with(|| Account::new(tx.client));
 
-        account.push_transaction(tx)?;
+        account.process_transaction(tx)?;
 
         dbg!(account);
     }
+
+    let mut csv_writer = csv::WriterBuilder::new().from_writer(std::io::stdout());
+
+    accounts.values().for_each(|account| {
+        csv_writer
+            .serialize(account)
+            .expect("failed to serialize account")
+    });
 
     Ok(())
 }
