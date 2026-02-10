@@ -1,4 +1,4 @@
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, PartialEq, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum TransactionType {
     Deposit,

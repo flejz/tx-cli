@@ -34,6 +34,12 @@ impl Account {
         unimplemented!()
     }
 
+    pub fn find_transaction(&self, tx_id: u32, tx_type: TransactionType) -> Option<&Transaction> {
+        self.transactions
+            .iter()
+            .find(move |tx| tx.tx == tx_id && tx.r#type == tx_type)
+    }
+
     pub fn push_transaction(&mut self, tx: Transaction) -> Result<(), AccountError> {
         if self.client != tx.client {
             return Err(AccountError::MismatchingAccounts(self.client, tx.client));
