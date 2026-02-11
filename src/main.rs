@@ -11,6 +11,10 @@ mod rules;
 #[command(version, about, long_about = None)]
 struct Cli {
     input: PathBuf,
+
+    /// Sort the output per account number ascending
+    #[arg(short, long, default_value_t = false)]
+    sort: bool,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -44,12 +48,24 @@ fn main() -> Result<(), Error> {
             .entry(tx.client)
             .or_insert_with(|| Account::new(tx.client));
 
-        account.process_transaction(tx)?;
+        if let Err(err) = account.process_transaction(tx) {
+            // print to stderr so on stdout redirection (>) does not include the error
+            eprintln!("{err}");
+        }
     }
 
     let mut csv_writer = csv::WriterBuilder::new().from_writer(std::io::stdout());
 
-    accounts.values().for_each(|account| {
+    // README:
+    // We are collecting here just for the sake of sorting for comparison between the output
+    // and the accounts.csv base file
+    // This allocation however just allocates pointer references, it does not clone account values
+    let mut accounts: Vec<&Account> = accounts.values().collect();
+    if cli.sort {
+        accounts.sort_by_key(|account| account.client);
+    };
+
+    accounts.iter().for_each(|account| {
         csv_writer
             .serialize(account)
             .expect("failed to serialize account")
