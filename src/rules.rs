@@ -1,6 +1,6 @@
 use rust_decimal::Decimal;
 
-use crate::model::{Account, TransactionType};
+use crate::model::Account;
 
 #[derive(Debug, thiserror::Error)]
 pub enum RuleError {
@@ -72,16 +72,6 @@ pub fn check_dispute_exists(account: &Account, tx_id: &u32) -> Result<(), RuleEr
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::Transaction;
-
-    fn make_tx(r#type: TransactionType, client: u16, tx: u32, amount: Decimal) -> Transaction {
-        Transaction {
-            r#type,
-            client,
-            tx,
-            amount,
-        }
-    }
 
     mod check_not_frozen_tests {
         use super::*;
@@ -137,33 +127,19 @@ mod tests {
         #[test]
         fn deposit_found_returns_amount() {
             let mut account = Account::new(1);
-            account
-                .transactions
-                .push(make_tx(TransactionType::Deposit, 1, 1, Decimal::from(100)));
-            assert_eq!(get_deposit_amount(&account, 1).unwrap(), Decimal::from(100));
+            account.deposits.insert(1, Decimal::from(100));
+            assert_eq!(
+                get_deposit_amount(&account, &1).unwrap(),
+                &Decimal::from(100)
+            );
         }
 
         #[test]
         fn deposit_not_found_returns_error() {
             let account = Account::new(1);
             assert!(matches!(
-                get_deposit_amount(&account, 99),
+                get_deposit_amount(&account, &99),
                 Err(RuleError::DepositNotFound(99))
-            ));
-        }
-
-        #[test]
-        fn non_deposit_tx_not_found() {
-            let mut account = Account::new(1);
-            account.transactions.push(make_tx(
-                TransactionType::Withdrawal,
-                1,
-                1,
-                Decimal::from(100),
-            ));
-            assert!(matches!(
-                get_deposit_amount(&account, 1),
-                Err(RuleError::DepositNotFound(1))
             ));
         }
     }
@@ -174,20 +150,16 @@ mod tests {
         #[test]
         fn dispute_exists_passes() {
             let mut account = Account::new(1);
-            account
-                .transactions
-                .push(make_tx(TransactionType::Deposit, 1, 1, Decimal::from(100)));
-            account
-                .transactions
-                .push(make_tx(TransactionType::Dispute, 1, 1, Decimal::ZERO));
-            assert!(check_dispute_exists(&account, 1).is_ok());
+            account.deposits.insert(1, Decimal::from(100));
+            account.disputes.insert(1);
+            assert!(check_dispute_exists(&account, &1).is_ok());
         }
 
         #[test]
         fn deposit_not_found_returns_error() {
             let account = Account::new(1);
             assert!(matches!(
-                check_dispute_exists(&account, 1),
+                check_dispute_exists(&account, &1),
                 Err(RuleError::DepositNotFound(1))
             ));
         }
@@ -195,11 +167,9 @@ mod tests {
         #[test]
         fn dispute_missing_returns_error() {
             let mut account = Account::new(1);
-            account
-                .transactions
-                .push(make_tx(TransactionType::Deposit, 1, 1, Decimal::from(100)));
+            account.deposits.insert(1, Decimal::from(100));
             assert!(matches!(
-                check_dispute_exists(&account, 1),
+                check_dispute_exists(&account, &1),
                 Err(RuleError::TrasactionNotOnDispute(1))
             ));
         }

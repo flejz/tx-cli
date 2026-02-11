@@ -22,7 +22,7 @@ pub struct Account {
     pub held: Decimal,
     pub frozen: bool,
 
-    pub(crate) transactions: HashMap<u32, Decimal>,
+    pub(crate) deposits: HashMap<u32, Decimal>,
     pub(crate) disputes: HashSet<u32>,
 }
 
@@ -49,14 +49,17 @@ impl Account {
         }
     }
 
+    /// Account available + held amounts
     pub fn total(&self) -> Decimal {
         self.available + self.held
     }
 
+    /// Return deposit amount if found
     pub fn find_deposit(&self, tx_id: &u32) -> Option<&Decimal> {
-        self.transactions.get(tx_id)
+        self.deposits.get(tx_id)
     }
 
+    /// Return dispute transaction when found
     pub fn has_dispute(&self, tx_id: &u32) -> Option<&u32> {
         self.disputes.get(tx_id)
     }
@@ -64,7 +67,7 @@ impl Account {
     /// Increases the available balance by the given amount.
     fn deposit(&mut self, tx: &Transaction) {
         self.available += tx.amount;
-        self.transactions.insert(tx.tx, tx.amount);
+        self.deposits.insert(tx.tx, tx.amount);
     }
 
     /// Decreases the available balance by the given amount.
