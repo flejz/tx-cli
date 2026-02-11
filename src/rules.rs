@@ -15,6 +15,9 @@ pub enum RuleError {
 
     #[error("transaction not being disputed: {0}")]
     TrasactionNotOnDispute(u32),
+
+    #[error("missing amount for transaction: {0}")]
+    MissingAmount(u32),
 }
 
 /// Checks that the account is not frozen.
@@ -41,6 +44,15 @@ pub fn check_sufficient_funds(account: &Account, amount: Decimal) -> Result<(), 
     Ok(())
 }
 
+/// Checks that the transaction has an amount and returns it.
+///
+/// # Errors
+///
+/// Returns [`RuleError::MissingAmount`] if the amount is `None`.
+pub fn require_amount(tx_id: u32, amount: Option<Decimal>) -> Result<Decimal, RuleError> {
+    amount.ok_or(RuleError::MissingAmount(tx_id))
+}
+
 /// Finds a deposit transaction by ID and returns its amount.
 ///
 /// # Errors
@@ -52,7 +64,6 @@ pub fn get_deposit_amount<'a>(
 ) -> Result<&'a Decimal, RuleError> {
     account
         .find_deposit(tx_id)
-        .map(|amount| amount)
         .ok_or(RuleError::DepositNotFound(*tx_id))
 }
 
@@ -118,6 +129,22 @@ mod tests {
                 check_sufficient_funds(&account, Decimal::from(100)),
                 Err(RuleError::InsuficientFunds)
             ));
+        }
+    }
+
+    mod require_amount_tests {
+        use super::*;
+
+        #[test]
+        fn amount_present_returns_value() {
+            let result = require_amount(1, Some(Decimal::from(100)));
+            assert_eq!(result.unwrap(), Decimal::from(100));
+        }
+
+        #[test]
+        fn amount_missing_returns_error() {
+            let result = require_amount(1, None);
+            assert!(matches!(result, Err(RuleError::MissingAmount(1))));
         }
     }
 

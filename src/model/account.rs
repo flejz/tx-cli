@@ -65,15 +65,18 @@ impl Account {
     }
 
     /// Increases the available balance by the given amount.
-    fn deposit(&mut self, tx: &Transaction) {
-        self.available += tx.amount;
-        self.deposits.insert(tx.tx, tx.amount);
+    fn deposit(&mut self, tx: &Transaction) -> Result<(), RuleError> {
+        let amount = rules::require_amount(tx.tx, tx.amount)?;
+        self.available += amount;
+        self.deposits.insert(tx.tx, amount);
+        Ok(())
     }
 
     /// Decreases the available balance by the given amount.
     fn withdrawal(&mut self, tx: &Transaction) -> Result<(), RuleError> {
-        rules::check_sufficient_funds(self, tx.amount)?;
-        self.available -= tx.amount;
+        let amount = rules::require_amount(tx.tx, tx.amount)?;
+        rules::check_sufficient_funds(self, amount)?;
+        self.available -= amount;
         Ok(())
     }
 
@@ -114,7 +117,7 @@ impl Account {
 
         match &tx.r#type {
             TransactionType::Deposit => {
-                self.deposit(&tx);
+                self.deposit(&tx)?;
             }
             TransactionType::Withdrawal => {
                 self.withdrawal(&tx)?;
@@ -137,7 +140,12 @@ impl Account {
 mod tests {
     use super::*;
 
-    fn make_tx(r#type: TransactionType, client: u16, tx: u32, amount: Decimal) -> Transaction {
+    fn make_tx(
+        r#type: TransactionType,
+        client: u16,
+        tx: u32,
+        amount: Option<Decimal>,
+    ) -> Transaction {
         Transaction {
             r#type,
             client,
@@ -147,23 +155,23 @@ mod tests {
     }
 
     fn make_deposit(client: u16, tx: u32, amount: Decimal) -> Transaction {
-        make_tx(TransactionType::Deposit, client, tx, amount)
+        make_tx(TransactionType::Deposit, client, tx, Some(amount))
     }
 
     fn make_withdrawal(client: u16, tx: u32, amount: Decimal) -> Transaction {
-        make_tx(TransactionType::Withdrawal, client, tx, amount)
+        make_tx(TransactionType::Withdrawal, client, tx, Some(amount))
     }
 
     fn make_dispute(client: u16, tx: u32) -> Transaction {
-        make_tx(TransactionType::Dispute, client, tx, Decimal::ZERO)
+        make_tx(TransactionType::Dispute, client, tx, None)
     }
 
     fn make_resolve(client: u16, tx: u32) -> Transaction {
-        make_tx(TransactionType::Resolve, client, tx, Decimal::ZERO)
+        make_tx(TransactionType::Resolve, client, tx, None)
     }
 
     fn make_chargeback(client: u16, tx: u32) -> Transaction {
-        make_tx(TransactionType::Chargeback, client, tx, Decimal::ZERO)
+        make_tx(TransactionType::Chargeback, client, tx, None)
     }
 
     mod deposit_tests {
@@ -222,6 +230,18 @@ mod tests {
             ));
             assert_eq!(account.available, Decimal::ZERO);
         }
+
+        #[test]
+        fn deposit_missing_amount_returns_error() {
+            let mut account = Account::new(1);
+            let result =
+                account.process_transaction(make_tx(TransactionType::Deposit, 1, 1, None));
+            assert!(matches!(
+                result,
+                Err(AccountError::RuleViolation(RuleError::MissingAmount(1)))
+            ));
+            assert_eq!(account.available, Decimal::ZERO);
+        }
     }
 
     mod withdrawal_tests {
@@ -269,6 +289,19 @@ mod tests {
             assert!(matches!(
                 result,
                 Err(AccountError::RuleViolation(RuleError::AccountFrozen))
+            ));
+            assert_eq!(account.available, Decimal::from(100));
+        }
+
+        #[test]
+        fn withdrawal_missing_amount_returns_error() {
+            let mut account = Account::new(1);
+            account.available = Decimal::from(100);
+            let result =
+                account.process_transaction(make_tx(TransactionType::Withdrawal, 1, 1, None));
+            assert!(matches!(
+                result,
+                Err(AccountError::RuleViolation(RuleError::MissingAmount(1)))
             ));
             assert_eq!(account.available, Decimal::from(100));
         }
