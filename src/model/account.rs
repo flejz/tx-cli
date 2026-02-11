@@ -1,5 +1,4 @@
-use core::f64;
-
+use rust_decimal::Decimal;
 use serde::{Serialize, Serializer, ser::SerializeStruct};
 
 use super::{Transaction, TransactionType};
@@ -14,8 +13,8 @@ pub enum AccountError {
 #[derive(Debug, Default)]
 pub struct Account {
     pub client: u16,
-    pub available: f64,
-    pub held: f64,
+    pub available: Decimal,
+    pub held: Decimal,
     pub frozen: bool,
 
     pub(crate) transactions: Vec<Transaction>,
@@ -28,9 +27,9 @@ impl Serialize for Account {
     {
         let mut state = serializer.serialize_struct("Account", 5)?;
         state.serialize_field("client", &self.client)?;
-        state.serialize_field("available", &self.available)?;
-        state.serialize_field("held", &self.held)?;
-        state.serialize_field("total", &self.total())?;
+        state.serialize_field("available", &self.available.normalize().to_string())?;
+        state.serialize_field("held", &self.held.normalize().to_string())?;
+        state.serialize_field("total", &self.total().normalize().to_string())?;
         state.serialize_field("locked", &self.frozen)?;
         state.end()
     }
@@ -44,7 +43,7 @@ impl Account {
         }
     }
 
-    pub fn total(&self) -> f64 {
+    pub fn total(&self) -> Decimal {
         self.available + self.held
     }
 

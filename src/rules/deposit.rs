@@ -28,9 +28,11 @@ pub fn deposit(account: &mut Account, tx: &Transaction) -> Result<(), RuleError>
 
 #[cfg(test)]
 mod tests {
+    use rust_decimal::Decimal;
+
     use super::*;
 
-    fn make_deposit(client: u16, tx: u32, amount: f64) -> Transaction {
+    fn make_deposit(client: u16, tx: u32, amount: Decimal) -> Transaction {
         Transaction {
             r#type: TransactionType::Deposit,
             client,
@@ -42,40 +44,40 @@ mod tests {
     #[test]
     fn deposit_increases_available() {
         let mut account = Account::new(1);
-        deposit(&mut account, &make_deposit(1, 1, 100.0)).unwrap();
-        assert_eq!(account.available, 100.0);
+        deposit(&mut account, &make_deposit(1, 1, Decimal::from(100))).unwrap();
+        assert_eq!(account.available, Decimal::from(100));
     }
 
     #[test]
     fn deposit_does_not_affect_held() {
         let mut account = Account::new(1);
-        deposit(&mut account, &make_deposit(1, 1, 50.0)).unwrap();
-        assert_eq!(account.held, 0.0);
+        deposit(&mut account, &make_deposit(1, 1, Decimal::from(50))).unwrap();
+        assert_eq!(account.held, Decimal::ZERO);
     }
 
     #[test]
     fn deposit_total_equals_available_when_no_held() {
         let mut account = Account::new(1);
-        deposit(&mut account, &make_deposit(1, 1, 75.0)).unwrap();
+        deposit(&mut account, &make_deposit(1, 1, Decimal::from(75))).unwrap();
         assert_eq!(account.total(), account.available);
     }
 
     #[test]
     fn multiple_deposits_accumulate() {
         let mut account = Account::new(1);
-        deposit(&mut account, &make_deposit(1, 1, 1.0)).unwrap();
-        deposit(&mut account, &make_deposit(1, 2, 2.0)).unwrap();
-        deposit(&mut account, &make_deposit(1, 3, 3.0)).unwrap();
-        assert_eq!(account.available, 6.0);
+        deposit(&mut account, &make_deposit(1, 1, Decimal::from(1))).unwrap();
+        deposit(&mut account, &make_deposit(1, 2, Decimal::from(2))).unwrap();
+        deposit(&mut account, &make_deposit(1, 3, Decimal::from(3))).unwrap();
+        assert_eq!(account.available, Decimal::from(6));
     }
 
     #[test]
     fn deposit_on_frozen_account_returns_error() {
         let mut account = Account::new(1);
         account.frozen = true;
-        let result = deposit(&mut account, &make_deposit(1, 1, 100.0));
+        let result = deposit(&mut account, &make_deposit(1, 1, Decimal::from(100)));
         assert!(matches!(result, Err(RuleError::AccountFrozen)));
-        assert_eq!(account.available, 0.0);
+        assert_eq!(account.available, Decimal::ZERO);
     }
 
     #[test]
@@ -86,7 +88,7 @@ mod tests {
             r#type: TransactionType::Withdrawal,
             client: 1,
             tx: 1,
-            amount: 10.0,
+            amount: Decimal::from(10),
         };
         deposit(&mut account, &tx).unwrap();
     }

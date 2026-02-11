@@ -38,9 +38,11 @@ pub fn dispute(account: &mut Account, tx: &Transaction) -> Result<(), RuleError>
 
 #[cfg(test)]
 mod tests {
+    use rust_decimal::Decimal;
+
     use super::*;
 
-    fn make_tx(r#type: TransactionType, client: u16, tx: u32, amount: f64) -> Transaction {
+    fn make_tx(r#type: TransactionType, client: u16, tx: u32, amount: Decimal) -> Transaction {
         Transaction {
             r#type,
             client,
@@ -50,7 +52,7 @@ mod tests {
     }
 
     /// Returns an account that has a deposit of `amount` with tx id `tx_id` already applied.
-    fn account_with_deposit(client: u16, tx_id: u32, amount: f64) -> Account {
+    fn account_with_deposit(client: u16, tx_id: u32, amount: Decimal) -> Account {
         let mut account = Account::new(client);
         account.available = amount;
         account
@@ -61,41 +63,41 @@ mod tests {
 
     #[test]
     fn dispute_moves_amount_from_available_to_held() {
-        let mut account = account_with_deposit(1, 1, 100.0);
+        let mut account = account_with_deposit(1, 1, Decimal::from(100));
         let total_before = account.total();
-        let tx = make_tx(TransactionType::Dispute, 1, 1, 0.0);
+        let tx = make_tx(TransactionType::Dispute, 1, 1, Decimal::ZERO);
         dispute(&mut account, &tx).unwrap();
-        assert_eq!(account.available, 0.0);
-        assert_eq!(account.held, 100.0);
+        assert_eq!(account.available, Decimal::ZERO);
+        assert_eq!(account.held, Decimal::from(100));
         assert_eq!(account.total(), total_before);
     }
 
     #[test]
     fn dispute_unknown_tx_returns_error() {
-        let mut account = account_with_deposit(1, 1, 100.0);
-        let tx = make_tx(TransactionType::Dispute, 1, 99, 0.0);
+        let mut account = account_with_deposit(1, 1, Decimal::from(100));
+        let tx = make_tx(TransactionType::Dispute, 1, 99, Decimal::ZERO);
         let result = dispute(&mut account, &tx);
         assert!(matches!(result, Err(RuleError::DepositNotFound(99))));
-        assert_eq!(account.available, 100.0);
-        assert_eq!(account.held, 0.0);
+        assert_eq!(account.available, Decimal::from(100));
+        assert_eq!(account.held, Decimal::ZERO);
     }
 
     #[test]
     fn dispute_on_frozen_account_returns_error() {
-        let mut account = account_with_deposit(1, 1, 100.0);
+        let mut account = account_with_deposit(1, 1, Decimal::from(100));
         account.frozen = true;
-        let tx = make_tx(TransactionType::Dispute, 1, 1, 0.0);
+        let tx = make_tx(TransactionType::Dispute, 1, 1, Decimal::ZERO);
         let result = dispute(&mut account, &tx);
         assert!(matches!(result, Err(RuleError::AccountFrozen)));
-        assert_eq!(account.available, 100.0);
-        assert_eq!(account.held, 0.0);
+        assert_eq!(account.available, Decimal::from(100));
+        assert_eq!(account.held, Decimal::ZERO);
     }
 
     #[test]
     #[should_panic]
     fn dispute_panics_on_wrong_type() {
-        let mut account = account_with_deposit(1, 1, 100.0);
-        let tx = make_tx(TransactionType::Deposit, 1, 1, 0.0);
+        let mut account = account_with_deposit(1, 1, Decimal::from(100));
+        let tx = make_tx(TransactionType::Deposit, 1, 1, Decimal::ZERO);
         dispute(&mut account, &tx).unwrap();
     }
 }
