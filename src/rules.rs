@@ -46,11 +46,14 @@ pub fn check_sufficient_funds(account: &Account, amount: Decimal) -> Result<(), 
 /// # Errors
 ///
 /// Returns [`RuleError::DepositNotFound`] if no deposit with the given `tx_id` exists.
-pub fn get_deposit_amount(account: &Account, tx_id: u32) -> Result<Decimal, RuleError> {
+pub fn get_deposit_amount<'a>(
+    account: &'a Account,
+    tx_id: &'a u32,
+) -> Result<&'a Decimal, RuleError> {
     account
-        .find_transaction(tx_id, TransactionType::Deposit)
-        .map(|tx| tx.amount)
-        .ok_or(RuleError::DepositNotFound(tx_id))
+        .find_deposit(tx_id)
+        .map(|amount| amount)
+        .ok_or(RuleError::DepositNotFound(*tx_id))
 }
 
 /// Checks that a dispute exists for the given transaction ID.
@@ -58,11 +61,11 @@ pub fn get_deposit_amount(account: &Account, tx_id: u32) -> Result<Decimal, Rule
 /// # Errors
 ///
 /// Returns [`RuleError::TrasactionNotOnDispute`] if no dispute with the given `tx_id` exists.
-pub fn check_dispute_exists(account: &Account, tx_id: u32) -> Result<(), RuleError> {
+pub fn check_dispute_exists(account: &Account, tx_id: &u32) -> Result<(), RuleError> {
     let _ = get_deposit_amount(account, tx_id)?;
     account
-        .find_transaction(tx_id, TransactionType::Dispute)
-        .ok_or(RuleError::TrasactionNotOnDispute(tx_id))?;
+        .has_dispute(tx_id)
+        .ok_or(RuleError::TrasactionNotOnDispute(*tx_id))?;
     Ok(())
 }
 

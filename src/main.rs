@@ -45,8 +45,6 @@ fn main() -> Result<(), Error> {
             .or_insert_with(|| Account::new(tx.client));
 
         account.process_transaction(tx)?;
-
-        dbg!(account);
     }
 
     let mut csv_writer = csv::WriterBuilder::new().from_writer(std::io::stdout());

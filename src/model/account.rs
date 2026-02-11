@@ -1,3 +1,5 @@
+use std::collections::{HashMap, HashSet};
+
 use rust_decimal::Decimal;
 use serde::{Serialize, Serializer, ser::SerializeStruct};
 
@@ -20,7 +22,8 @@ pub struct Account {
     pub held: Decimal,
     pub frozen: bool,
 
-    pub(crate) transactions: Vec<Transaction>,
+    pub(crate) transactions: HashMap<u32, Decimal>,
+    pub(crate) disputes: HashSet<u32>,
 }
 
 impl Serialize for Account {
@@ -50,15 +53,18 @@ impl Account {
         self.available + self.held
     }
 
-    pub fn find_transaction(&self, tx_id: u32, tx_type: TransactionType) -> Option<&Transaction> {
-        self.transactions
-            .iter()
-            .find(move |tx| tx.tx == tx_id && tx.r#type == tx_type)
+    pub fn find_deposit(&self, tx_id: &u32) -> Option<&Decimal> {
+        self.transactions.get(tx_id)
+    }
+
+    pub fn has_dispute(&self, tx_id: &u32) -> Option<&u32> {
+        self.disputes.get(tx_id)
     }
 
     /// Increases the available balance by the given amount.
     fn deposit(&mut self, tx: &Transaction) {
         self.available += tx.amount;
+        self.transactions.insert(tx.tx, tx.amount);
     }
 
     /// Decreases the available balance by the given amount.
@@ -70,27 +76,30 @@ impl Account {
 
     /// Moves funds from available to held for a disputed transaction.
     fn dispute(&mut self, tx: &Transaction) -> Result<(), RuleError> {
-        let amount = rules::get_deposit_amount(self, tx.tx)?;
+        let amount = *rules::get_deposit_amount(self, &tx.tx)?;
         self.available -= amount;
         self.held += amount;
+        self.disputes.insert(tx.tx);
         Ok(())
     }
 
     /// Moves funds from held back to available, resolving a dispute.
     fn resolve(&mut self, tx: &Transaction) -> Result<(), RuleError> {
-        let amount = rules::get_deposit_amount(self, tx.tx)?;
-        rules::check_dispute_exists(self, tx.tx)?;
+        let amount = *rules::get_deposit_amount(self, &tx.tx)?;
+        rules::check_dispute_exists(self, &tx.tx)?;
         self.held -= amount;
         self.available += amount;
+        self.disputes.remove(&tx.tx);
         Ok(())
     }
 
     /// Removes held funds and freezes the account permanently.
     fn chargeback(&mut self, tx: &Transaction) -> Result<(), RuleError> {
-        let amount = rules::get_deposit_amount(self, tx.tx)?;
-        rules::check_dispute_exists(self, tx.tx)?;
+        let amount = *rules::get_deposit_amount(self, &tx.tx)?;
+        rules::check_dispute_exists(self, &tx.tx)?;
         self.held -= amount;
         self.frozen = true;
+        self.disputes.remove(&tx.tx);
         Ok(())
     }
 
@@ -117,8 +126,6 @@ impl Account {
                 self.chargeback(&tx)?;
             }
         }
-
-        self.transactions.push(tx);
         Ok(())
     }
 }
